@@ -1,0 +1,44 @@
+module sync_fifo #(
+    parameter dwidth = 8, depth = 16 
+)(
+    input wire  clk, rst, write_en, read_en,
+    input wire [dwidth-1:0] data_in,
+    output reg  [dwidth-1:0] data_out,
+    output wire full, empty 
+);
+    localparam addwidth = $clog2(depth);
+    
+    reg [dwidth-1:0] mem [0:depth-1];
+    reg [addwidth-1:0] write, read;
+    reg [addwidth:0]   count;
+
+    assign full  = (count == depth);
+    assign empty = (count == 0);
+
+always @(posedge clk) begin
+        if (rst) begin
+            count    <= 0;
+            write    <= 0;
+            read     <= 0;
+            data_out <= 0;
+        end 
+        else begin
+            if ((write_en & ~full) & (read_en & ~empty)) 
+                count <= count;// both read and write
+            else if (write_en & ~full) 
+                count <= count + 1;// only write
+            else if (read_en & ~empty) 
+                count <= count - 1;// only read
+
+            if (write_en & ~full) begin
+                mem[write] <= data_in;
+                write <= (write == depth-1) ? 0 : write + 1;
+            end
+            
+            if (read_en & ~empty) begin
+                data_out <= mem[read];
+                read <= (read == depth-1) ? 0 : read + 1;
+            end
+        end
+    end
+endmodule
